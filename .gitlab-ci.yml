@@ -1,50 +1,19 @@
-image: python:3.8
+image: ubuntu:22.04
 
 stages:
-  - greeting
-  - lint
-  - unit
-  - integration
+  - downloading
 
-variables:
-  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
-
-cache:
-  paths:
-    - .cache/pip
-
-before_script:
-  - pip install --upgrade pip
-  - pip install -r requirements.txt
-
-greet:
-  stage: greeting
+load_image:
+  stage: downloading
   script:
-    - echo "Hello! My name is $MY_LOGIN. My password is [MASKED]"
+    - apt-get update
+    - apt install curl -y
+    - curl https://dl.min.io/client/mc/release/linux-amd64/mc --create-dirs -o $HOME/minio-binaries/mc
+    - chmod +x $HOME/minio-binaries/mc
+    - export PATH=$PATH:$HOME/minio-binaries/
+    - mc alias set $MINIO_ALIAS $MINIO_URL $MINIO_ACCESS_KEY $MINIO_SECRET_KEY
+    - mkdir -p $(dirname $LOCAL_PATH)
+    - mc cp $MINIO_ALIAS/$BUCKET_NAME/$REMOTE_PATH $LOCAL_PATH
+    - echo "$FILE_HASH  $LOCAL_PATH" | md5sum -c
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "master"'
-
-
-flake8_lint:
-  stage: lint
-  script:
-    - pip install flake8
-    - flake8 src tests || true
-  allow_failure: true
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "master"'
-
-unit_tests:
-  stage: unit
-  script:
-    - pytest tests/unit
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "master"'
-
-integration_tests:
-  stage: integration
-  script:
-    - pytest tests/integration
-  when: manual
-  needs: [unit_tests]
-  allow_failure: false 
