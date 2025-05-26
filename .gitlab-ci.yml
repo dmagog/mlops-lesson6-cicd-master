@@ -1,6 +1,7 @@
 image: python:3.8
 
 stages:
+  - greeting
   - lint
   - unit
   - integration
@@ -16,25 +17,30 @@ before_script:
   - pip install --upgrade pip
   - pip install -r requirements.txt
 
-# 1. Линтест: ошибки не прерывают пайплайн
+greet:
+  stage: greeting
+  script:
+    - echo "Hello! My name is $MY_LOGIN. My password is [MASKED]"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "master"'
+
+
 flake8_lint:
   stage: lint
   script:
     - pip install flake8
-    - flake8 src tests || true  # ошибка не приводит к сбою пайплайна
-  only:
-    - merge_requests
+    - flake8 src tests || true
   allow_failure: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "master"'
 
-# 2. Unit-тесты (провал которых останавливает интеграционные)
 unit_tests:
   stage: unit
   script:
     - pytest tests/unit
-  only:
-    - merge_requests
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "master"'
 
-# 3. Интеграционные тесты запускаются вручную, но только после успешных unit-тестов
 integration_tests:
   stage: integration
   script:
