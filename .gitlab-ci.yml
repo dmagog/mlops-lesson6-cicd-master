@@ -1,0 +1,44 @@
+image: python:3.8
+
+stages:
+  - lint
+  - unit
+  - integration
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+cache:
+  paths:
+    - .cache/pip
+
+before_script:
+  - pip install --upgrade pip
+  - pip install -r requirements.txt
+
+# 1. Линтест: ошибки не прерывают пайплайн
+flake8_lint:
+  stage: lint
+  script:
+    - pip install flake8
+    - flake8 src tests || true  # ошибка не приводит к сбою пайплайна
+  only:
+    - merge_requests
+  allow_failure: true
+
+# 2. Unit-тесты (провал которых останавливает интеграционные)
+unit_tests:
+  stage: unit
+  script:
+    - pytest tests/unit
+  only:
+    - merge_requests
+
+# 3. Интеграционные тесты запускаются вручную, но только после успешных unit-тестов
+integration_tests:
+  stage: integration
+  script:
+    - pytest tests/integration
+  when: manual
+  needs: [unit_tests]
+  allow_failure: false
