@@ -1,0 +1,43 @@
+name: Download and Verify
+
+on:
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  load_image:
+    runs-on: ubuntu-22.04
+    env:
+      MINIO_ALIAS: ${{ secrets.MINIO_ALIAS }}
+      MINIO_URL: ${{ secrets.MINIO_URL }}
+      MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
+      MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
+      LOCAL_PATH: ${{ secrets.LOCAL_PATH }}
+      BUCKET_NAME: ${{ secrets.BUCKET_NAME }}
+      REMOTE_PATH: ${{ secrets.REMOTE_PATH }}
+      FILE_HASH: ${{ secrets.FILE_HASH }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install curl
+        run: sudo apt-get update && sudo apt install curl -y
+
+      - name: Download MinIO client (mc)
+        run: |
+          curl https://dl.min.io/client/mc/release/linux-amd64/mc --create-dirs -o $HOME/minio-binaries/mc
+          chmod +x $HOME/minio-binaries/mc
+          echo "$HOME/minio-binaries" >> $GITHUB_PATH
+
+      - name: Configure MinIO alias
+        run: mc alias set $MINIO_ALIAS $MINIO_URL $MINIO_ACCESS_KEY $MINIO_SECRET_KEY
+
+      - name: Create local directory
+        run: mkdir -p $(dirname $LOCAL_PATH)
+
+      - name: Download file from MinIO
+        run: mc cp $MINIO_ALIAS/$BUCKET_NAME/$REMOTE_PATH $LOCAL_PATH
+
+      - name: Verify file hash
+        run: echo "$FILE_HASH  $LOCAL_PATH" | md5sum -c
