@@ -1,0 +1,50 @@
+image: python:3.8
+
+stages:
+  - greeting
+  - lint
+  - unit
+  - integration
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+cache:
+  paths:
+    - .cache/pip
+
+before_script:
+  - pip install --upgrade pip
+  - pip install -r requirements.txt
+
+greet:
+  stage: greeting
+  script:
+    - echo "Hello! My name is $MY_LOGIN. My password is [MASKED]"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "master"'
+
+
+flake8_lint:
+  stage: lint
+  script:
+    - pip install flake8
+    - flake8 src tests || true
+  allow_failure: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "master"'
+
+unit_tests:
+  stage: unit
+  script:
+    - pytest tests/unit
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "master"'
+
+integration_tests:
+  stage: integration
+  script:
+    - pytest tests/integration
+  when: manual
+  needs: [unit_tests]
+  allow_failure: false 
